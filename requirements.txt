@@ -18,4 +18,4 @@ boto3==1.34.0               # AWS S3 연동 및 데이터 전송용 공식 SDK
 
 # [4. Security & Validation]
 passlib[bcrypt]==1.7.4      # 유저 비밀번호 단방향 암호화 (보안 강화)
-python-multipart==0.0.6     # 로그인 및 폼 데이터 전송 처리용
+python-multipart==0.0.6     # 로그인 및 폼 데이터 전송 처리용 
