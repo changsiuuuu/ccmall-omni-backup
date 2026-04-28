@@ -1,0 +1,21 @@
+# [Project Environment]
+# Python Version==3.11.7
+
+# [1. Web Framework & Engine]
+fastapi==0.109.0            # 비동기 백엔드 API 프레임워크 (시스템 핵심 엔진)
+uvicorn[standard]==0.27.0   # 고성능 ASGI 서버 (FastAPI 앱 실행기)
+jinja2==3.1.3               # HTML 화면 렌더링을 위한 템플릿 엔진
+
+# [2. Database & Connection]
+sqlalchemy==2.0.25          # 파이썬 ORM 표준 (DB 쿼리 및 테이블 관리)
+psycopg2-binary==2.9.9      # PostgreSQL 서버 접속을 위한 필수 드라이버
+python-dotenv==1.0.0        # .env 환경 변수 로드 (보안 정보 관리)
+
+# [3. Ops & Automation]
+ansible==2.15.0             # 인프라 구성 및 서버 설정 자동화 도구
+apscheduler==3.10.4         # S3 데이터 자동 이관 스케줄러 (실무 백업 핵심)
+boto3==1.34.0               # AWS S3 연동 및 데이터 전송용 공식 SDK
+
+# [4. Security & Validation]
+passlib[bcrypt]==1.7.4      # 유저 비밀번호 단방향 암호화 (보안 강화)
+python-multipart==0.0.6     # 로그인 및 폼 데이터 전송 처리용 
