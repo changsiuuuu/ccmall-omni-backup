@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>고객 관리 시스템 - 테스트용</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; }
+        .test-badge { background-color: #ff4d4d; color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #333; color: white; }
+        tr:hover { background-color: #f5f5f5; cursor: pointer; }
+        .container { max-width: 900px; margin: auto; }
+        .detail-box { margin-top: 20px; padding: 15px; border: 2px dashed #ff4d4d; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>고객 관리 시스템 <span class="test-badge">테스트용</span></h1>
+        <p>※ 이 페이지는 API 연동 및 데이터 확인을 위한 <strong>테스트용</strong> 화면입니다.</p>
+        
+        <button onclick="loadCustomers()" style="padding: 10px 20px;">데이터 불러오기</button>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>이름</th>
+                    <th>이메일</th>
+                    <th>전화번호</th>
+                </tr>
+            </thead>
+            <tbody id="listContents"></tbody>
+        </table>
+
+        <div id="detailView" class="detail-box">
+            <h3>상세 정보 (테스트 데이터)</h3>
+            <div id="detailData"></div>
+        </div>
+    </div>
+
+    <script>
+        const SERVER_URL = "http://127.0.0.1:8000";
+
+        async function loadCustomers() {
+            try {
+                const res = await fetch(`${SERVER_URL}/api/customers`);
+                const items = await res.json();
+                const tbody = document.getElementById('listContents');
+                tbody.innerHTML = '';
+
+                items.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.onclick = () => showDetail(item.ID);
+                    row.innerHTML = `<td>${item.ID}</td><td>${item.NAME}</td><td>${item.EMAIL}</td><td>${item.PHONE}</td>`;
+                    tbody.appendChild(row);
+                });
+            } catch (e) { alert("서버 연결 확인 필요"); }
+        }
+
+        async function showDetail(id) {
+            try {
+                const res = await fetch(`${SERVER_URL}/api/customers/${id}`);
+                const data = await res.json();
+                const box = document.getElementById('detailView');
+                box.style.display = 'block';
+                document.getElementById('detailData').innerHTML = `
+                    <p><b>주소:</b> ${data.ADDR}</p>
+                    <p><b>생일:</b> ${data.BIRTH}</p>
+                    <p><b>비고:</b> 테스트 통신 성공</p>
+                `;
+            } catch (e) { alert("상세 정보 호출 실패"); }
+        }
+    </script>
+</body>
+</html>
