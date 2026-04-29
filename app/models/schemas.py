@@ -1,4 +1,6 @@
 ﻿# [DB Models] SQLAlchemy 기반의 데이터베이스 테이블 구조 정의 (테이블 스키마)
+from os import name
+
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from ..core.database import Base # database.py에서 정의한 Base를 가져옵니다.
 
@@ -19,9 +21,13 @@ class Order(Base):
     customer_id = Column(String)
     order_time = Column(DateTime)
     
-class Customer(Base):  # 클래스 이름은 대문자 단수형!
-    __tablename__ = "customers"  # 실제 DB 테이블 이름
-    id = Column(String, primary_key=True)
-    name = Column(String)
-    phone_number = Column(String)
-    address = Column(String)
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id = Column(String(50), primary_key=True, index=True)
+    password = Column(String(255), nullable=False)
+    name = Column(String(50), nullable=False)
+    birth_date = Column(Date, nullable=False)
+    address = Column(String(50), nullable=False)
+    email = Column(String(100), nullable=False)
+    phone_number = Column(String(20), nullable=False)
