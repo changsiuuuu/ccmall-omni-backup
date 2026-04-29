@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>CCMall Admin - 고객 관리</title>
+    <style>
+        /* 기본 스타일 설정 [cite: 2, 3] */
+        body { font-family: 'Malgun Gothic', sans-serif; background: #f0f8ff; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(70, 130, 180, 0.15); width: 90%; max-width: 1000px; border: 2px solid #b0e0e6; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h2 { color: #4682b4; margin: 0; }
+
+        /* 검색 영역 스타일 [cite: 3, 4] */
+        .search-area { display: flex; gap: 10px; margin-bottom: 20px; background: #e0ffff; padding: 15px; border-radius: 15px; }
+        select, input { padding: 10px; border: 2px solid #b0e0e6; border-radius: 10px; outline: none; }
+        .btn-search { background: #87ceeb; color: white; border: none; border-radius: 10px; padding: 0 20px; cursor: pointer; font-weight: bold; }
+        .btn-search:hover { background: #4682b4; }
+
+        /* 테이블 스타일 [cite: 6, 7] */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #87ceeb; color: white; padding: 12px; border-radius: 5px 5px 0 0; }
+        td { padding: 15px; border-bottom: 1px solid #f0f8ff; text-align: center; color: #555; }
+        tr:hover { background: #f9ffff; }
+
+        .btn-detail { background: white; color: #4682b4; border: 2px solid #87ceeb; border-radius: 8px; padding: 5px 15px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .btn-detail:hover { background: #87ceeb; color: white; }
+
+        /* 모달 공통 스타일 [cite: 18, 41] */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 10% auto; padding: 25px; border-radius: 20px; width: 450px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); border: 2px solid #87ceeb; }
+        .modal-body { margin-top: 15px; }
+        .modal-body input, .modal-body p { width: 100%; margin-bottom: 12px; box-sizing: border-box; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
+        
+        /* 상세 정보 레이아웃 */
+        .info-row { display: flex; border-bottom: 1px solid #f0f8ff; padding: 8px 0; }
+        .info-label { width: 100px; font-weight: bold; color: #4682b4; }
+        .info-value { flex: 1; color: #333; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="header">
+            <h2>☁️ 고객 관리 리스트</h2>
+            <div>
+                <button class="btn-detail" onclick="openModal('customerModal')">고객 추가</button>
+                <button class="btn-detail" onclick="location.href='/'">메인으로</button>
+            </div>
+        </div>
+
+        <div class="search-area">
+            <select id="search-type">
+                <option value="id" {% if search_type == 'id' %}selected{% endif %}>아이디</option>
+                <option value="name" {% if search_type == 'name' %}selected{% endif %}>이름</option>
+                <option value="addr" {% if search_type == 'addr' %}selected{% endif %}>주소</option>
+            </select>
+            <input type="text" id="search-input" value="{{ search_value or '' }}" placeholder="검색어를 입력하세요..." style="flex-grow: 1;">
+            <button class="btn-search" onclick="searchData()">검색</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>아이디</th>
+                    <th>이름</th>
+                    <th>주소</th>
+                    <th>액션</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in customers %}
+                <tr>
+                    <td><strong>{{ customer.ID }}</strong></td>
+                    <td>{{ customer.NAME }}</td>
+                    <td>{{ customer.ADDR }}</td>
+                    <td>
+                        <button class="btn-detail" onclick="viewCustomerDetail('{{ customer.ID }}')">상세보기</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div id="customerModal" class="modal">
+        <div class="modal-content">
+            <h3 style="color: #4682b4; margin-top: 0;">👤 신규 고객 등록</h3>
+            <div class="modal-body">
+                <input type="text" id="new-id" placeholder="아이디 (필수)">
+                <input type="password" id="new-pw" placeholder="비밀번호 (필수)">
+                <input type="text" id="new-name" placeholder="이름 (필수)">
+                <input type="email" id="new-email" placeholder="이메일 (필수)">
+                <input type="text" id="new-addr" placeholder="주소 (필수)">
+                <input type="text" id="new-phone" placeholder="전화번호 (필수)">
+                <input type="date" id="new-birth" title="생년월일 (필수)">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-search" onclick="submitCustomer()">저장</button>
+                <button class="btn-detail" onclick="closeModal('customerModal')" style="border-color: #ccc; color: #888;">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <h3 style="color: #4682b4; margin-top: 0;">🔍 고객 상세 정보</h3>
+            <div class="modal-body" id="detail-content">
+                <div class="info-row"><div class="info-label">아이디</div><div class="info-value" id="det-id"></div></div>
+                <div class="info-row"><div class="info-label">이름</div><div class="info-value" id="det-name"></div></div>
+                <div class="info-row"><div class="info-label">이메일</div><div class="info-value" id="det-email"></div></div>
+                <div class="info-row"><div class="info-label">주소</div><div class="info-value" id="det-addr"></div></div>
+                <div class="info-row"><div class="info-label">전화번호</div><div class="info-value" id="det-phone"></div></div>
+                <div class="info-row"><div class="info-label">생년월일</div><div class="info-value" id="det-birth"></div></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-search" onclick="closeModal('detailModal')">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openModal(id) { document.getElementById(id).style.display = 'block'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // [추가] 고객 상세 정보 가져오기 및 모달 표시
+        async function viewCustomerDetail(memberId) {
+            try {
+                // 이전에 만든 GET /{member_id} API 호출 [cite: 351]
+                const response = await fetch(`/customers/${memberId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // 모달 내 각 항목에 데이터 삽입
+                    document.getElementById('det-id').innerText = data.ID;
+                    document.getElementById('det-name').innerText = data.NAME;
+                    document.getElementById('det-email').innerText = data.EMAIL;
+                    document.getElementById('det-addr').innerText = data.ADDR;
+                    document.getElementById('det-phone').innerText = data.PHONE;
+                    document.getElementById('det-birth').innerText = data.BIRTH;
+
+                    openModal('detailModal');
+                } else {
+                    alert("정보를 가져오는데 실패했습니다.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("서버 통신 오류가 발생했습니다.");
+            }
+        }
+
+        async function submitCustomer() {
+            const customerData = {
+                ID: document.getElementById('new-id').value,
+                PW: document.getElementById('new-pw').value,
+                NAME: document.getElementById('new-name').value,
+                EMAIL: document.getElementById('new-email').value,
+                ADDR: document.getElementById('new-addr').value,
+                PHONE: document.getElementById('new-phone').value,
+                BIRTH: document.getElementById('new-birth').value
+            };
+
+            if (!customerData.ID || !customerData.PW || !customerData.NAME) {
+                alert("아이디, 비밀번호, 이름은 필수입니다.");
+                return;
+            }
+
+            try {
+                const response = await fetch('/customers/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(customerData)
+                });
+
+                if (response.ok) {
+                    alert("고객 정보가 성공적으로 추가되었습니다.");
+                    location.reload(); 
+                } else {
+                    const errorData = await response.json();
+                    alert("추가 실패: " + (errorData.detail || "오류가 발생했습니다."));
+                }
+            } catch (error) {
+                alert("서버 연결에 실패했습니다.");
+            }
+        }
+
+        function searchData() {
+            const type = document.getElementById('search-type').value;
+            const value = document.getElementById('search-input').value;
+            location.href = `/customers/?search_type=${type}&search_value=${value}`;
+        }
+
+        document.getElementById('search-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') { searchData(); }
+        });
+
+        // 모달 외곽 클릭 시 닫기
+        window.onclick = function(event) {
+            if (event.target.className === 'modal') {
+                event.target.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>

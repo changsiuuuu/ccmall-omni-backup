@@ -31,3 +31,5 @@ class Customer(Base):
     ADDR = Column(String(50), nullable=False)
     EMAIL = Column(String(100), nullable=False)
     PHONE = Column(String(20), nullable=False)
+    
+    
