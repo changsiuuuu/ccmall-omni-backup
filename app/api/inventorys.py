@@ -32,4 +32,3 @@ def read_inventory_detail(item_id: int, db: Session = Depends(get_db)):
         "item_name": db_item.item_name,  
         "quantity": db_item.quantity     
     }
-#test

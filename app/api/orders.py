@@ -41,4 +41,3 @@ def create_order(item_id: int, customer_id: str, count: int, db: Session = Depen
     db.refresh(new_order)
     
     return {"message": f"{count}개 주문 완료!"}
-#test

@@ -18,4 +18,3 @@ class Order(Base):
     item_id = Column(Integer, ForeignKey("inventorys.item_id"))
     customer_id = Column(String)
     order_time = Column(DateTime)
-    #test

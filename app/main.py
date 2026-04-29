@@ -22,4 +22,4 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # app/main.py
 @app.get("/")
 async def read_index():
-    return FileResponse("static/index.html") # 메인 메뉴(와이어프레임 중앙)
+    return FileResponse("static/index.html")
