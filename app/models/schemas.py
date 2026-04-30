@@ -1,6 +1,6 @@
 # [DB Models] SQLAlchemy 기반의 데이터베이스 테이블 구조 정의 (테이블 스키마)
 from os import name
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Date
 from ..core.database import Base # database.py에서 정의한 Base를 가져옵니다.
 
 # [DB Model] inventorys 테이블 매칭
