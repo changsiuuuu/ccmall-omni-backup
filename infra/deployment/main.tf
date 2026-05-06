@@ -355,6 +355,7 @@ resource "aws_instance" "ec2_web" {
   associate_public_ip_address = true                           # 공인 ip를 할당함
   vpc_security_group_ids      = [aws_security_group.sg_web.id] # 보안 그룹
   key_name                    = aws_key_pair.kp.key_name       # 위에서 준비한 key pair의 이름
+  # 서버사양 바뀌면 볼륨 설정 조정 필요
   root_block_device {
   volume_size           = 8
   volume_type           = "gp3"
@@ -382,6 +383,7 @@ resource "aws_instance" "ec2_rec" {
   associate_public_ip_address = false                          # 공인 ip를 할당하지 않음
   vpc_security_group_ids      = [aws_security_group.sg_rec.id] # 보안 그룹
   key_name                    = aws_key_pair.kp.key_name       # 위에서 준비한 key pair의 이름
+  # 서버사양 바뀌면 볼륨 설정 조정 필요
   root_block_device {
   volume_size           = 10
   volume_type           = "gp3"
