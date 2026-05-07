@@ -12,7 +12,7 @@ CREATE TABLE customers (
     birth_date DATE,                   -- 생년월일
     address TEXT,                      -- 주소 (HTML의 addr와 매핑)
     email VARCHAR(30) UNIQUE          -- 이메일
-    phone_number VARCHAR(20) NOT NULL -- 휴대전화 번호
+    phone_number VARCHAR(20) NOT NULL -- 휴대전화 번호 
 );
 
 -- 4. 재고 테이블 (inventorys)
