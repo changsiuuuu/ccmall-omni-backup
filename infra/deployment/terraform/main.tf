@@ -368,6 +368,8 @@ resource "aws_instance" "ec2_web" {
   user_data = <<-EOF
     #!/bin/bash
     hostnamectl set-hostname Web
+    # /etc/hosts 에도 일관성 있게 반영
+    echo "127.0.0.1 Web" >> /etc/hosts
   EOF
 
   tags = {
@@ -399,6 +401,8 @@ resource "aws_instance" "ec2_rec" {
   user_data = <<-EOF
     #!/bin/bash
     hostnamectl set-hostname Rec
+    # /etc/hosts 에도 일관성 있게 반영
+    echo "127.0.0.1 Rec" >> /etc/hosts
   EOF
 
   tags = {
