@@ -1,0 +1,63 @@
+groups:
+  - name: ccmall_alerts
+    rules:
+
+      # CPU 90% 이상이면 알림
+      - alert: CPU과부하
+        expr: 100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU 사용량 높음 {{ $labels.instance }}"
+          description: "CPU가 90% 이상입니다"
+
+      # 메모리 90% 이상이면 알림
+      - alert: 메모리부족
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "메모리 부족 {{ $labels.instance }}"
+          description: "메모리가 90% 이상 사용중입니다"
+
+      # 디스크 85% 이상이면 알림
+      - alert: 디스크부족
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 85
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "디스크 부족 {{ $labels.instance }}"
+          description: "디스크가 85% 이상 사용중입니다"
+
+      # 서비스 다운이면 알림
+      - alert: 서비스다운
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "서비스 다운 {{ $labels.instance }}"
+          description: "서비스가 응답하지 않습니다"
+
+      # DB 접속 불가이면 알림
+      - alert: DB접속불가
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DB 접속 불가 {{ $labels.instance }}"
+          description: "PostgreSQL DB에 접속할 수 없습니다"
+
+      # 백업 실패이면 알림
+      - alert: 백업실패
+        expr: time() - node_filesystem_files_free{mountpoint="/backup"} > 86400
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "백업 실패 {{ $labels.instance }}"
+          description: "24시간 이상 백업이 되지 않았습니다"

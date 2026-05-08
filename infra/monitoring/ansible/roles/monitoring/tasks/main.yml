@@ -1,0 +1,81 @@
+---
+- name: 필요한 패키지 업데이트
+  dnf:
+    update_cache: yes
+    name: "*"
+    state: latest
+
+- name: Grafana YUM 저장소 등록
+  copy:
+    dest: /etc/yum.repos.d/grafana.repo
+    content: |
+      [grafana]
+      name=grafana
+      baseurl=https://rpm.grafana.com
+      repo_gpgcheck=1
+      enabled=1
+      gpgcheck=1
+      gpgkey=https://rpm.grafana.com/gpg.key
+
+- name: Prometheus 설치
+  dnf:
+    name: prometheus
+    state: present
+
+- name: Grafana 설치
+  dnf:
+    name: grafana
+    state: present
+
+- name: Alertmanager 설치
+  dnf:
+    name: alertmanager
+    state: present
+
+- name: Prometheus 설정 파일 복사
+  copy:
+    src: prometheus.yml
+    dest: /etc/prometheus/prometheus.yml
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+  notify: restart prometheus
+
+- name: 알림 규칙 파일 복사
+  copy:
+    src: alert_rules.yml
+    dest: /etc/prometheus/alert_rules.yml
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+  notify: restart prometheus
+
+- name: Prometheus 서비스 시작
+  systemd:
+    name: prometheus
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Grafana 서비스 시작
+  systemd:
+    name: grafana-server
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Alertmanager 서비스 시작
+  systemd:
+    name: alertmanager
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Telegram 알림 테스트
+  uri:
+    url: "https://api.telegram.org/bot{{ telegram_token }}/sendMessage"
+    method: POST
+    body_format: json
+    body:
+      chat_id: "{{ chat_id }}"
+      text: "✅ 모니터링 설치 완료!"
