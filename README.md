@@ -18,27 +18,44 @@
 ```
 ## 📁 2. Directory Structure
 
-```
-ccmall/
-├── app/                        # FastAPI 애플리케이션
-│   ├── api/                    # API 라우터
-│   ├── core/                   # DB 연결, 설정
-│   ├── crud/                   # DB CRUD 로직
-│   ├── models/                 # DB 모델
-│   ├── schemas/                # Pydantic 스키마
-│   ├── services/               # 외부 서비스 연동
-│   └── tasks/                  # APScheduler 백업/이관 태스크
-├── infra/
-│   ├── deployment/
-│   │   ├── ansible/            # 서버 설정 자동화
-│   │   └── terraform/          # AWS 인프라 코드
-│   ├── backup/                 # 백업 관련 스크립트
-│   ├── monitoring/             # Prometheus / Grafana
-│   └── recovery/               # 장애 복구 스크립트
-├── docs/                       # 프로젝트 문서
-├── cicd/                       # GitHub Actions 워크플로우
-├── static/                     # 정적 파일
-└── requirements.txt/           # 파이썬 의존성 패키지
+ccmall-omni-backup/
+├── app/                      # FastAPI 애플리케이션 (백엔드)
+│   ├── api/                  # API 라우터 및 엔드포인트 (customers, inventory, orders)
+│   ├── core/                 # DB 연결, 환경변수 등 전역 설정
+│   ├── crud/                 # DB CRUD 쿼리 로직
+│   ├── models/               # SQLAlchemy DB 테이블 스키마
+│   ├── schemas/              # Pydantic 데이터 검증 및 응답 스키마
+│   ├── services/             # S3 연동 등 외부 비즈니스 로직
+│   ├── tasks/                # APScheduler 백업/이관 스케줄러 로직
+│   └── main.py               # 애플리케이션 진입점 (Entry Point)
+│
+├── infra/                    # 인프라 및 운영 레이어 (IaC)
+│   ├── deployment/           # 인프라 구축 자동화
+│   │   ├── ansible/          # EC2 초기세팅, 패키지 설치 (roles 구조)
+│   │   └── terraform/        # AWS 인프라 리소스 생성 코드
+│   ├── backup/               # DB 백업 자동화 (Ansible Playbooks)
+│   ├── monitoring/           # Prometheus, Grafana, Alertmanager 설치
+│   ├── recovery/             # 장애 복구 (EC2-Rec 승격, 재동기화)
+│   ├── inventory/            # Terraform이 자동 생성하는 인벤토리 폴더
+│   │   └── inventory.yml     # 타겟 서버 IP 목록 (자동 생성)
+│   └── ansible.cfg           # Ansible 설정 파일 (Terraform 자동 생성)
+│
+├── docs/                     # 기술 설계서 및 프로젝트 매뉴얼
+│   ├── architecture.md       # 시스템 아키텍처 및 네트워크 구조
+│   ├── deployment.md         # 전체 시스템 배포 매뉴얼
+│   ├── backup-recovery.md    # 데이터 계층화 및 장애 복구 매뉴얼
+│   ├── monitoring.md         # 모니터링 알람 설정 가이드
+│   ├── convention.md         # 코드 및 깃 커밋 컨벤션
+│   └── troubleshooting.md    # 자주 발생하는 오류(FAQ) 및 해결 방안
+│
+├── .github/              
+│   └── workflows/            # CI/CD 파이프라인 (GitHub Actions 필수 경로)
+│       └── workflow.yml      # 인프라 자동 배포 워크플로우
+│
+├── static/                   # 정적 파일 (HTML, CSS 등)
+├── .env                      # 환경변수 (DB, AWS 설정 - Git 업로드 제외)
+├── .gitignore                # Git 추적 제외 파일 목록 (보안 유지)
+└── requirements.txt          # Python 의존성 패키지 목록
 ```
 
 - ## 📅3. 프로젝트 진행 방식 (Operational Process)
