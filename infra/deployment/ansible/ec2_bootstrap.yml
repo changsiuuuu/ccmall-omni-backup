@@ -1,0 +1,46 @@
+# infra/deployment/ansible/ec2_bootstrap.yml
+---
+- name: "EC2 인스턴스에 초기 세팅"
+  hosts: bootstrap_ec2
+  become: yes
+
+  tasks:
+    - name: "1. user1 계정 생성"
+      user:
+        name: user1
+        shell: /bin/bash
+        groups: "{{ 'wheel' if ansible_os_family == 'RedHat' else 'sudo' }}"
+        append: yes
+        state: present
+
+    - name: "2. user1에 NOPASSWD 설정"
+      copy:
+        dest: "/etc/sudoers.d/user1"
+        content: "user1 ALL=(ALL) NOPASSWD: ALL\n"
+        owner: root
+        group: root
+        mode: "0440"
+        validate: "/usr/sbin/visudo -cf %s"
+
+    - name: "3. user1 .ssh 디렉터리 생성"
+      file:
+        path: /home/user1/.ssh
+        state: directory
+        owner: user1
+        group: user1
+        mode: "0700"
+
+    - name: "4. mgmt 서버의 ansiblekey.pem.pub를 user1 authorized_keys에 등록"
+      authorized_key:
+        user: user1
+        state: present
+        key: "{{ lookup('file', '/home/user1/.ssh/ansiblekey.pem.pub') }}"
+        manage_dir: yes
+
+    - name: "5. authorized_keys 권한 보정"
+      file:
+        path: /home/user1/.ssh/authorized_keys
+        state: file
+        owner: user1
+        group: user1
+        mode: "0600"
