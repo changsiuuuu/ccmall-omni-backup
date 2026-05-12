@@ -126,22 +126,14 @@
     owner: prometheus
     group: prometheus
 
-- name: Alertmanager 기본 설정 파일 생성
-  copy:
+- name: Alertmanager 설정 파일 복사
+  template:
+    src: alertmanager.yml
     dest: /etc/alertmanager/alertmanager.yml
     owner: prometheus
     group: prometheus
     mode: '0644'
-    content: |
-      route:
-        group_by: ['alertname']
-        group_wait: 30s
-        group_interval: 5m
-        repeat_interval: 1h
-        receiver: 'default'
-      receivers:
-        - name: 'default'
-          webhook_configs: []
+  notify: restart alertmanager
 
 - name: Alertmanager 서비스 파일 등록
   copy:
