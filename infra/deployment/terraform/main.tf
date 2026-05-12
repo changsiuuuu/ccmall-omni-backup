@@ -253,13 +253,21 @@ resource "aws_security_group" "sg_rec" {
   }
 }
 
-# s3 버킷 및 IAM 설정
-resource "random_id" "ccmall_bucket_suffix" {
-  byte_length = 2
+# S3 버킷 prefix를 외부에서 주입받는다.
+variable "s3_bucket_prefix" {
+  description = "CCmall S3 bucket prefix"
+  type        = string
+  default     = "ccmall-bucket"
 }
 
+# S3 버킷명 충돌 방지를 위한 랜덤 suffix
+resource "random_id" "ccmall_bucket_suffix" {
+  byte_length = 4
+}
+
+# 최종 S3 버킷명
 resource "aws_s3_bucket" "ccmall_bucket" {
-  bucket = "ccmall-bucket-${random_id.ccmall_bucket_suffix.hex}"
+  bucket = "${var.s3_bucket_prefix}-${random_id.ccmall_bucket_suffix.hex}"
 }
 
 # EC2가 S3에 접근할 IAM Role
@@ -269,9 +277,11 @@ resource "aws_iam_role" "ec2_s3_role" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "ec2.amazonaws.com" }
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
     }]
   })
 }
@@ -378,8 +388,8 @@ output "rec_private_ip" {
 
 # 생성된 s3의 버킷 이름 출력
 output "s3_bucket_name" {
-  description = "생성된 s3 버킷의 이름"
-  value       = aws_s3_bucket.ccmall_bucket.id
+  description = "Created S3 bucket name"
+  value       = aws_s3_bucket.ccmall_bucket.bucket
 }
 locals {
   # 현재 Terraform 코드가 있는 위치
