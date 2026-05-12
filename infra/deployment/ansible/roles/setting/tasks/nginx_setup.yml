@@ -33,4 +33,4 @@
         immediate: true
       ignore_errors: yes
 
-  when: "'ccmall_web' in group_names"
+  when: inventory_hostname == 'ccmall-Web'

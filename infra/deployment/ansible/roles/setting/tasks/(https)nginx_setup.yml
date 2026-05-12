@@ -136,6 +136,6 @@
       retries: 5
       delay: 3
       until: fastapi_health.status == 200
-  when: "'ccmall_web' in group_names"
+  when: inventory_hostname == 'ccmall-Web'
 
 

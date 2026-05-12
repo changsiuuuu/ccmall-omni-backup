@@ -1,5 +1,5 @@
 # deployment/ansible/roles/postgresql/tasks/main.yml
-# db 관련 변수는 group_vars/all.yml 참고
+# db 관련 변수는 ansible/vars.yml 참고.
 
 ---
 - name: 1. 지원되는 OS 계열인지 확인

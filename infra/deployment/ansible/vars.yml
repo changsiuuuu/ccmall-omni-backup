@@ -18,9 +18,17 @@ db_pw: "1234"
 
 client_cidr: "0.0.0.0/0"
 
+# Tailscale 관련
+tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH') }}"
+tailscale_api_key: "{{ lookup('env', 'TAILSCALE_TOKEN') }}"
+tailnet_name: "zeoxixx@gmail.com"
+
+ec2_cidr: "10.0.0.0/16"
+local_cidr: "192.168.64.0/24"
+
 # 도메인 / HTTPS
 ccmall_domain: "ccmall.example.com"
-certbot_email: "your-email@example.com"
+certbot_email: "zeoxixx@gmail.com"
 
 # Cloudflare Tunnel Token
 cloudflared_token: "여기에_Cloudflare_Tunnel_Token"

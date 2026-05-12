@@ -1,0 +1,13 @@
+
+# deployment/ansible/roles/tailscale/sample.txt
+본 Role은 서버에 tailscale을 설치하고,
+Recovery 서버(예비 DB, 승격)와 mgmt(ansible 배포 및 관리)를
+subnet router로 구성하는 역할을 함.
+
+Rec은 AWS VPC 대역을 광고하고, mgmt는 온프레미스 대역을 광고한다.
+이후 tailscale API를 이용해 advertised route를 자동 승인하여
+AWS와 온프레미스간 사설 VPN 라우팅이 가능하도록 구성한다.
+
+주의사항:
+- 현재 코드 기준 inventory host name이 ccmall-Con, ccmall-Rec 이어야 동작 가능하며
+- 추후 테라폼 네임규칙을 기준으로 수정할 예정.

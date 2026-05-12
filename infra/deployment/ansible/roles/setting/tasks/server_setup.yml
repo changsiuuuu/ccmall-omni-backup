@@ -69,7 +69,7 @@
       pip:
         name: ansible-core==2.15.0
         executable: pip3
-  when: "'ccmall_con' in group_names"
+  when: inventory_hostname == 'ccmall-Con'
 
 # ---------------------
 # ccmall_web set up
@@ -110,7 +110,7 @@
           - python-dotenv==1.0.0
           - passlib==1.7.4
           - python-multipart==0.0.6
-  when: "'ccmall_web' in group_names"
+  when: inventory_hostname == 'ccmall-Web'
 
 # ---------------------
 # ccmall_rec setup
@@ -140,6 +140,6 @@
           - apscheduler==3.10.4
           - boto3==1.34.0
           - python-dotenv==1.0.0
-  when: "'ccmall_rec' in group_names"
+  when: inventory_hostname == 'ccmall-Rec'
 
   
