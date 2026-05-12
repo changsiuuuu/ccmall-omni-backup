@@ -388,7 +388,7 @@ output "rec_private_ip" {
 
 # 생성된 s3의 버킷 이름 출력
 output "s3_bucket_name" {
-  description = "만들어진 S3 bucket 이름"
+  description = "S3 bucket 이름"
   value       = aws_s3_bucket.ccmall_bucket.bucket
 }
 locals {
