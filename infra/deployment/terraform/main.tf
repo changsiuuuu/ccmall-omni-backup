@@ -2,7 +2,7 @@
 # AWS에 Web, Rec 서버를 provisioning한다.
 
 terraform {
-  required_version = "~> 1.14.0"
+  required_version = ">= 1.14.0, < 2.0.0"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
