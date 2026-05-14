@@ -11,8 +11,8 @@
     app_port: 8000
     app_repo: "https://github.com/hacksungboo/ccmall-omni-backup"
     app_branch: main
-    ccmall_domain: "ccmall.bobobobobo.cloud"
-    certbot_email: "이메일주소입력"
+    ccmall_domain: "bobobobo.store"
+    certbot_email: "gkrtjdqn@gmail.com"
 
   roles:
     - setting
