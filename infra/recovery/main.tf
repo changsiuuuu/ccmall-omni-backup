@@ -181,7 +181,7 @@ EOT
   }
 }
 
-output "ec2_db_2_private_ip" {
+output "ccmall-Recovery-ec2_private_ip" {
   description = "Recovery DB private ip"
   value       = aws_instance.ec2_db_2.private_ip
 }
