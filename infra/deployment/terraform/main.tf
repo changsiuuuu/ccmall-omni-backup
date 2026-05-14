@@ -492,7 +492,7 @@ resource "aws_instance" "ccmall_rec" {
     EOF
 
   tags = {
-    Name = "ccmall-Rec"
+    Name = "ccmall-Rec-CICD-test" # cicd test용 이름 변경
   }
 }
 
