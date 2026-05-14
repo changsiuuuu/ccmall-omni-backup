@@ -8,7 +8,43 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+
+    # --- tailscale provider 추가
+    tailscale = {
+      source  = "tailscale/tailscale"
+      version = "0.17.2"
+    }
   }
+}
+
+# --- 변수 선언
+variable "onprem_cidr" {
+  description = "on-premise network CIDR"
+  type        = string
+}
+variable "tailnet_name" {
+  description = "tailscale tailnet name"
+  type        = string
+}
+
+variable "tailscale_api_key" {
+  description = "tailscale api key"
+  type        = string
+  sensitive   = true
+}
+
+# --- tailscale api 키는 일단 tfvars에 보관.
+provider "tailscale" {
+  api_key = var.tailscale_api_key
+  tailnet = var.tailnet_name
+}
+
+# --- tailscale auth key 생성
+resource "tailscale_tailnet_key" "ccmall_join_key" {
+  reusable      = true
+  ephemeral     = false
+  preauthorized = true
+  expiry        = 86400
 }
 
 # 1. provider 설정
@@ -40,10 +76,7 @@ resource "aws_subnet" "ccmall_public_subnet" {
   cidr_block              = "10.0.1.0/24"
   availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true
-
-  tags = {
-    Name = "ccmall-public-subnet"
-  }
+  tags                    = { Name = "ccmall-public-subnet" }
 }
 
 # private subnet
@@ -52,10 +85,7 @@ resource "aws_subnet" "ccmall_private_subnet" {
   cidr_block              = "10.0.2.0/24"
   availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = false
-
-  tags = {
-    Name = "ccmall-private-subnet"
-  }
+  tags                    = { Name = "ccmall-private-subnet" }
 }
 
 # public subnet 라우팅 테이블
@@ -79,40 +109,18 @@ resource "aws_route_table_association" "a" {
   route_table_id = aws_route_table.ccmall_public_rt.id
 }
 
-# NAT Gateway에 붙일 탄력적 IP 생성
-resource "aws_eip" "ccmall_nat_eip" {
-  domain = "vpc"
-
-  tags = {
-    Name = "ccmall-nat-eip"
-  }
-}
-
-# NAT Gateway 생성
-resource "aws_nat_gateway" "ccmall_nat_gw" {
-  allocation_id = aws_eip.ccmall_nat_eip.id
-  subnet_id     = aws_subnet.ccmall_public_subnet.id
-
-  depends_on = [aws_internet_gateway.ccmall_igw]
-
-  tags = {
-    Name = "ccmall-nat-gw"
-  }
-}
-
 # private subnet 라우팅 테이블
 resource "aws_route_table" "ccmall_private_rt" {
   vpc_id = aws_vpc.ccmall_vpc.id
 
   # private subnet에서 외부 인터넷으로 나가는 트래픽은 NAT Gateway로 보낸다.
   route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.ccmall_nat_gw.id
+    cidr_block = "0.0.0.0/0"
+    # --- nat gateway를 ccmall_nat 인스턴스로 경로 변경
+    network_interface_id = aws_instance.ccmall_nat.primary_network_interface_id
   }
 
-  tags = {
-    Name = "ccmall-private-nat"
-  }
+  tags = { Name = "ccmall-private-nat" }
 }
 
 # private subnet과 private route table 연결
@@ -120,6 +128,19 @@ resource "aws_route_table_association" "private_a" {
   subnet_id      = aws_subnet.ccmall_private_subnet.id
   route_table_id = aws_route_table.ccmall_private_rt.id
 }
+
+# --- onprem 대역으로 가는 트래픽은 Rec으로 전부 보내는 경로 추가
+resource "aws_route" "to_onprem_from_public" {
+  route_table_id         = aws_route_table.ccmall_public_rt.id
+  destination_cidr_block = var.onprem_cidr
+  network_interface_id   = aws_instance.ccmall_rec.primary_network_interface_id
+}
+resource "aws_route" "to_onprem_from_private" {
+  route_table_id         = aws_route_table.ccmall_private_rt.id
+  destination_cidr_block = var.onprem_cidr
+  network_interface_id   = aws_instance.ccmall_rec.primary_network_interface_id
+}
+
 
 # pem 파일 관련 작업
 resource "tls_private_key" "ccmall_private_key" {
@@ -142,6 +163,70 @@ resource "local_file" "ccmall_ssh_key" {
   filename        = local.ccmall_ssh_key_file
   content         = tls_private_key.ccmall_private_key.private_key_pem
   file_permission = "0600"
+}
+
+
+# --- NAT Instance 보안 그룹 설정
+resource "aws_security_group" "sg_nat" {
+  name   = "SG-NAT"
+  vpc_id = aws_vpc.ccmall_vpc.id
+
+  ingress { # 외부 SSH -> 나중에 지우기
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress { # NAT로 들어오는 트래픽 전면 허용
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [aws_vpc.ccmall_vpc.cidr_block]
+  }
+
+  egress { # private subnet에서 나가는 임의 트래픽
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = { Name = "SG-NAT" }
+}
+
+# --- NAT Instance 생성
+resource "aws_instance" "ccmall_nat" {
+  ami                         = data.aws_ami.latest_al2023.id
+  instance_type               = "t3.micro"
+  subnet_id                   = aws_subnet.ccmall_public_subnet.id
+  associate_public_ip_address = true
+  vpc_security_group_ids      = [aws_security_group.sg_nat.id]
+  key_name                    = aws_key_pair.ccmall_key.key_name
+
+  source_dest_check = false
+
+  # --- 설정 스크립트
+  user_data = <<-EOF
+    #!/bin/bash
+    set -eux
+
+    hostnamectl set-hostname NAT
+    echo "127.0.0.1 NAT" >> /etc/hosts
+
+    echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-nat.conf
+    sysctl -p /etc/sysctl.d/99-nat.conf
+
+    dnf install -y iptables-services
+    systemctl enable --now iptables
+
+    iptables -P FORWARD ACCEPT
+    iptables -I FORWARD -j ACCEPT
+    iptables -t nat -A POSTROUTING -s ${aws_vpc.ccmall_vpc.cidr_block} -j MASQUERADE
+
+    service iptables save
+  EOF
+
+  tags = { Name = "ccmall-NAT" }
 }
 
 # web 서버 보안 그룹
@@ -240,6 +325,14 @@ resource "aws_security_group" "sg_rec" {
     cidr_blocks = ["172.16.8.0/24"]
   }
 
+  # Web에서 오는 onprem 행 포워딩 트래픽 허용
+  ingress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    security_groups = [aws_security_group.sg_web.id]
+  }
+
   # outbound 전체 허용
   egress {
     from_port   = 0
@@ -309,7 +402,7 @@ data "aws_ami" "latest_al2023" {
 
 # web ec2 만들기
 resource "aws_instance" "ccmall_web" {
-  ami                         = data.aws_ami.latest_al2023.id
+  ami                         = "ami-01cbcf53c1503fe8a"
   instance_type               = "t3.micro"
   subnet_id                   = aws_subnet.ccmall_public_subnet.id
   private_ip                  = "10.0.1.10"
@@ -339,7 +432,7 @@ resource "aws_instance" "ccmall_web" {
 
 # rec ec2 만들기
 resource "aws_instance" "ccmall_rec" {
-  ami                         = data.aws_ami.latest_al2023.id
+  ami                         = "ami-01cbcf53c1503fe8a"
   instance_type               = "t3.micro"
   subnet_id                   = aws_subnet.ccmall_private_subnet.id
   private_ip                  = "10.0.2.30"
@@ -347,6 +440,9 @@ resource "aws_instance" "ccmall_rec" {
   vpc_security_group_ids      = [aws_security_group.sg_rec.id]
   key_name                    = aws_key_pair.ccmall_key.key_name
   iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
+  depends_on                  = [aws_instance.ccmall_nat, aws_route_table_association.private_a]
+  # ---
+  source_dest_check = false
 
   root_block_device {
     volume_size           = 10
@@ -355,17 +451,50 @@ resource "aws_instance" "ccmall_rec" {
   }
 
   # 서버 생성 시 hostname을 Rec으로 변경한다.
+  # --- tailscale 설정 스크립트
   user_data = <<-EOF
     #!/bin/bash
-    hostnamectl set-hostname Rec
+    set -eux
 
-    # /etc/hosts 에도 일관성 있게 반영
+    hostnamectl set-hostname Rec
     grep -q "127.0.0.1 Rec" /etc/hosts || echo "127.0.0.1 Rec" >> /etc/hosts
 
-  EOF
+    until curl -s https://login.tailscale.com >/dev/null; do
+      sleep 5
+    done
+
+    curl -fsSL https://tailscale.com/install.sh | sh
+    systemctl enable --now tailscaled
+
+    cat > /etc/sysctl.d/99-tailscale.conf <<'SYSCTL'
+    net.ipv4.ip_forward = 1
+    net.ipv6.conf.all.forwarding = 1
+    SYSCTL
+
+    sysctl -p /etc/sysctl.d/99-tailscale.conf
+
+    tailscale up \
+      --authkey=${tailscale_tailnet_key.ccmall_join_key.key} \
+      --hostname=ccmall-rec \
+      --advertise-routes=${aws_vpc.ccmall_vpc.cidr_block} \
+      --accept-routes
+    EOF
+
   tags = {
     Name = "ccmall-Rec"
   }
+}
+
+# --- Terraform이 기기를 찾고 라우팅 승인
+data "tailscale_device" "rec_device" {
+  #OS hostname Rec을 가져다 디바이스 생성함.
+  hostname   = "ccmall-rec"
+  wait_for   = "300s"
+  depends_on = [terraform_data.bootstrap_user1]
+}
+resource "tailscale_device_subnet_routes" "approve_vpc_routes" {
+  device_id = data.tailscale_device.rec_device.id
+  routes    = [aws_vpc.ccmall_vpc.cidr_block]
 }
 
 # 생성된 ccmall-Web의 public ip를 출력
@@ -426,6 +555,7 @@ locals {
   # 부트스트랩 playbook 위치
   bootstrap_playbook = "${local.deployment_dir}/ansible/ec2_bootstrap.yml"
 }
+
 resource "terraform_data" "prepare_ansible_dirs" {
   triggers_replace = {
     inventory_dir = local.inventory_dir
@@ -587,4 +717,3 @@ resource "terraform_data" "run_monitoring_playbook" {
     EOT
   }
 }
-
