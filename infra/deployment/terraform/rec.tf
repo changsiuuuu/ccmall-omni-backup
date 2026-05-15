@@ -50,6 +50,6 @@ resource "aws_instance" "ccmall_rec" {
     EOF
 
   tags = {
-    Name = "ccmall-Rec-CICD-test" # cicd test용 이름 변경
+    Name = "ccmall-Rec" # cicd test용 이름 변경 -> 다시 ccmall-Rec 으로 변경 (CI/CD 테스트중..05.15 16:00)
   }
 }
