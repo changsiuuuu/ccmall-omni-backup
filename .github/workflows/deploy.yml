@@ -74,7 +74,7 @@ jobs:
         working-directory: infra/deployment/terraform
         run: |
           terraform init
-          terraform apply --auto-approve
+          terraform apply --auto-approve -var-file=dev.tfvars     
 
       # ===== Ansible 관련 step은 일단 주석 처리 =====
       # Terraform 동작 검증 후 하나씩 활성화 예정
