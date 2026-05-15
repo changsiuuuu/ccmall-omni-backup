@@ -19,7 +19,7 @@ terraform {
   }
   # terraform 상태관리 (CI/CD)
   backend "s3" {
-    bucket         = "tfstate-bucket-b2621cea" # 미리 생성한 본인의 s3 버킷
+    bucket         = "ccmall-tfstate-bucket-f16ce1d4" # 미리 생성한 본인의 s3 버킷 # CI/CD test를 위해 팀장 s3 이름으로 push 해놓겠습니다.
     key            = "deployment/terraform.tfstate"
     region         = "ap-northeast-2"
     dynamodb_table = "ccmall-terraform-lock" # 미리 준비된 dynamodb 테이블
