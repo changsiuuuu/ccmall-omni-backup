@@ -1,7 +1,7 @@
 # infra/deployment/terraform/provider.tf
 # AWS에 Web, Rec 서버를 provisioning한다.
 
-# 2026.05.15 16:10 CI/CD 테스트용 주석 수정
+# 2026.05.14 17:11 CI/CD 테스트용 주석 추가
 
 terraform {
   required_version = ">= 1.14.0, < 2.0.0"
@@ -19,7 +19,7 @@ terraform {
   }
   # terraform 상태관리 (CI/CD)
   backend "s3" {
-    bucket         = "ccmall-tfstate-bucket-f16ce1d4" # 미리 생성한 본인의 s3 버킷 # CI/CD test를 위해 팀장 s3 이름으로 push 해놓겠습니다.
+    bucket         = "tfstate-bucket-b2621cea" # 미리 생성한 본인의 s3 버킷
     key            = "deployment/terraform.tfstate"
     region         = "ap-northeast-2"
     dynamodb_table = "ccmall-terraform-lock" # 미리 준비된 dynamodb 테이블
