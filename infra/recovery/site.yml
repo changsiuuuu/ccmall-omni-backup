@@ -3,7 +3,6 @@
   become: true
 
   vars:
-    # [수정] scheduler.py에서 저장한 실제 S3 경로 지정
     backup_s3_path: "backups/full_db_backup.sql"   ### sql파일 경로 및 이름 바뀌면 "backups/full_db_backup.sql" 리펙토링 해야합니다
     db_name: "ccmall_db"
     db_user: "ccmall_user"
