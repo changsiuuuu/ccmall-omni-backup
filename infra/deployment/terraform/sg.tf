@@ -123,6 +123,14 @@ resource "aws_security_group" "sg_rec" {
     cidr_blocks = [var.mgmt_cidr]
   }
 
+  # Recovery EC2(sg_rec 내부)에서 ccmall-Rec PostgreSQL 접근 허용
+  ingress {
+    from_port = 5432
+    to_port   = 5432
+    protocol  = "tcp"
+    self      = true
+  }
+
   # Web에서 오는 onprem 행 포워딩 트래픽 허용
   ingress {
     from_port       = 0

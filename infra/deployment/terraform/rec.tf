@@ -45,8 +45,7 @@ resource "aws_instance" "ccmall_rec" {
     tailscale up \
       --authkey=${tailscale_tailnet_key.ccmall_join_key.key} \
       --hostname=ccmall-rec \
-      --advertise-routes=${aws_vpc.ccmall_vpc.cidr_block} \
-      --accept-routes
+      --advertise-routes=${aws_vpc.ccmall_vpc.cidr_block}
     EOF
 
   tags = {

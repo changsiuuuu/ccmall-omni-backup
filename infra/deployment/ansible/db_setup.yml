@@ -60,3 +60,20 @@
         GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ccmall_user;
         GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ccmall_user;
         "
+
+    - name: "8. Tailscale 초기화 대기 및 IP 조회"
+      command: tailscale ip -4
+      register: tailscale_ip
+      retries: 24
+      delay: 5
+      until: tailscale_ip.rc == 0 and tailscale_ip.stdout | trim | length > 0
+      changed_when: false
+
+    - name: "9. REC_DB_HOST 환경변수를 mgmt 서버 .bashrc에 등록"
+      lineinfile:
+        path: /home/user1/.bashrc
+        regexp: "^export REC_DB_HOST="
+        line: "export REC_DB_HOST={{ tailscale_ip.stdout | trim }}"
+      delegate_to: localhost
+      become: false
+      become_user: "{{ lookup('env', 'USER') }}"

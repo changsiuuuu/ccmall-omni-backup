@@ -38,9 +38,9 @@ resource "local_file" "ansible_inventory" {
           ansible_host = aws_instance.ccmall_rec.private_ip
 
           # %r은 현재 Ansible 접속 사용자로 치환된다.
-          # 부트스트랩 때는 ec2-user,
-          # 운영 때는 user1로 동작한다.
-          ansible_ssh_common_args = "-o ProxyCommand=\"ssh -i ${local.ccmall_ssh_key_file} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p -q %r@${aws_instance.ccmall_web.public_ip}\" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+          # 부트스트랩 때는 ec2-user, 운영 때는 user1로 동작한다.
+          # 두 경우 모두 ccmall-key.pem으로 점프 인증한다.
+          ansible_ssh_common_args = "-o ProxyCommand=\"ssh -i ${local.ccmall_ssh_key_file} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GSSAPIAuthentication=no -W %h:%p -q %r@${aws_instance.ccmall_web.public_ip}\" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GSSAPIAuthentication=no"
         }
       }
     }
@@ -54,7 +54,7 @@ resource "local_file" "ansible_cfg" {
     [defaults]
     inventory = ${local.inventory_file}
     remote_user = user1
-    private_key_file = ${local.ansible_key_file}
+    private_key_file = ${local.ccmall_ssh_key_file}
     host_key_checking = False
     remote_tmp = ~/.ansible/tmp
     roles_path = ${local.deployment_roles_dir}:${local.monitoring_roles_dir}:${local.backup_roles_dir}:${local.recovery_roles_dir}
@@ -91,6 +91,10 @@ resource "terraform_data" "bootstrap_user1" {
       echo " EC2 SSH 준비 대기 중... (40초)"
       echo "======================================"
       sleep 40
+
+      # ccmall-key.pem의 공개키를 ec2_bootstrap.yml이 참조하는 경로에 저장
+      # 이후 user1의 authorized_keys에 ccmall-key.pem.pub이 등록된다.
+      ssh-keygen -y -f ${local.ccmall_ssh_key_file} > ~/.ssh/ansiblekey.pem.pub
 
       echo "======================================"
       echo " Ansible Bootstrap Playbook 시작!"
@@ -153,14 +157,16 @@ resource "terraform_data" "run_monitoring_playbook" {
     EOT
   }
 }
-###ccmall- Rec생성시 tailscale및 db설치후 테이블 생성 지금 오류있어서 변경예정
+
+###ccmall- Rec생성시 tailscale및 db설치후 테이블 생성
 resource "terraform_data" "run_db_setup_playbook" {
   depends_on = [
     aws_instance.ccmall_web,
     aws_instance.ccmall_rec,
     local_file.ansible_inventory,
     local_file.ansible_cfg,
-    terraform_data.run_monitoring_playbook 
+    terraform_data.bootstrap_user1,
+    terraform_data.run_monitoring_playbook
   ]
 
   triggers_replace = {
@@ -173,19 +179,9 @@ resource "terraform_data" "run_db_setup_playbook" {
 
     command = <<-EOT
       echo "======================================"
-      echo " user1 SSH 연결 대기 중..."
+      echo " DB Setup 준비 중... (10초)"
       echo "======================================"
-
-      until ssh -i ${local.ansible_key_file} \
-        -o StrictHostKeyChecking=no \
-        -o UserKnownHostsFile=/dev/null \
-        -o ProxyCommand="ssh -i ${local.ansible_key_file} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p -q user1@${aws_instance.ccmall_web.public_ip}" \
-        user1@${aws_instance.ccmall_rec.private_ip} \
-        "echo connected" >/dev/null 2>&1
-      do
-        echo "Rec SSH 아직 안됨... 5초 후 재시도"
-        sleep 5
-      done
+      sleep 10
 
       echo "======================================"
       echo " Ansible DB Setup Playbook 시작!"
@@ -197,6 +193,58 @@ resource "terraform_data" "run_db_setup_playbook" {
 
       echo "======================================"
       echo " DB Setup Playbook 완료!"
+      echo "======================================"
+    EOT
+  }
+
+}
+
+# =============================================
+# Terraform → Ansible 웹 애플리케이션 자동배포
+# EC2 생성 + inventory + ansible.cfg 준비 후 실행
+# bootstrap_user1 완료 후 deployment/ansible/deploy_web.yml 실행
+# =============================================
+resource "terraform_data" "run_deploy_web_playbook" {
+
+
+  depends_on = [
+    aws_instance.ccmall_web,        # Web 서버 생성 완료 후
+    aws_instance.ccmall_rec,        # Rec 서버 생성 완료 후
+    local_file.ansible_inventory,   # inventory.yml 생성 완료 후
+    local_file.ansible_cfg,         # ansible.cfg 생성 완료 후
+    terraform_data.bootstrap_user1  # bootstrap 완료 후
+  ]
+
+
+  triggers_replace = {
+    web_instance_id = aws_instance.ccmall_web.id
+    rec_instance_id = aws_instance.ccmall_rec.id
+    bootstrap_id    = terraform_data.bootstrap_user1.id
+  }
+
+
+  provisioner "local-exec" {
+    # ansible.cfg 기준 실행 위치
+    working_dir = local.infra_dir
+
+
+    command = <<-EOT
+      echo "======================================"
+      echo " EC2 SSH 준비 대기 중... (10초)"
+      echo "======================================"
+      sleep 10
+
+
+      echo "======================================"
+      echo " Ansible Web Deploy Playbook 시작!"
+      echo "======================================"
+      ANSIBLE_CONFIG=${local.ansible_cfg} \
+      ANSIBLE_SSH_PIPELINING=1 \
+      ansible-playbook deployment/ansible/deploy_web.yml
+
+
+      echo "======================================"
+      echo " Web Deploy Playbook 완료!"
       echo "======================================"
     EOT
   }
