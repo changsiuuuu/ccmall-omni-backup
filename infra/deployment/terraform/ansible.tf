@@ -38,9 +38,9 @@ resource "local_file" "ansible_inventory" {
           ansible_host = aws_instance.ccmall_rec.private_ip
 
           # %r은 현재 Ansible 접속 사용자로 치환된다.
-          # 부트스트랩 때는 ec2-user,
-          # 운영 때는 user1로 동작한다.
-          ansible_ssh_common_args = "-o ProxyCommand=\"ssh -i ${local.ccmall_ssh_key_file} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p -q %r@${aws_instance.ccmall_web.public_ip}\" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+          # 부트스트랩 때는 ec2-user, 운영 때는 user1로 동작한다.
+          # 두 경우 모두 ccmall-key.pem으로 점프 인증한다.
+          ansible_ssh_common_args = "-o ProxyCommand=\"ssh -i ${local.ccmall_ssh_key_file} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GSSAPIAuthentication=no -W %h:%p -q %r@${aws_instance.ccmall_web.public_ip}\" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GSSAPIAuthentication=no"
         }
       }
     }
@@ -92,6 +92,10 @@ resource "terraform_data" "bootstrap_user1" {
       echo " EC2 SSH 준비 대기 중... (40초)"
       echo "======================================"
       sleep 40
+
+      # ccmall-key.pem의 공개키를 ec2_bootstrap.yml이 참조하는 경로에 저장
+      # 이후 user1의 authorized_keys에 ccmall-key.pem.pub이 등록된다.
+      ssh-keygen -y -f ${local.ccmall_ssh_key_file} > ~/.ssh/ansiblekey.pem.pub
 
       echo "======================================"
       echo " Ansible Bootstrap Playbook 시작!"
@@ -155,7 +159,8 @@ resource "terraform_data" "run_monitoring_playbook" {
     EOT
   }
 }
-###ccmall- Rec생성시 tailscale및 db설치후 테이블 생성 지금 오류있어서 변경예정
+
+###ccmall- Rec생성시 tailscale및 db설치후 테이블 생성
 resource "terraform_data" "run_db_setup_playbook" {
   depends_on = [
     aws_instance.ccmall_web,
@@ -163,7 +168,7 @@ resource "terraform_data" "run_db_setup_playbook" {
     local_file.ansible_inventory,
     local_file.ansible_cfg,
     terraform_data.bootstrap_user1,
-    terraform_data.run_monitoring_playbook 
+    terraform_data.run_monitoring_playbook
   ]
 
   triggers_replace = {
@@ -176,18 +181,9 @@ resource "terraform_data" "run_db_setup_playbook" {
 
     command = <<-EOT
       echo "======================================"
-      echo " user1 SSH 연결 대기 중..."
+      echo " DB Setup 준비 중... (10초)"
       echo "======================================"
-
-      until ssh -i ${local.ccmall_ssh_key_file} \
-        -o StrictHostKeyChecking=no \
-        -o UserKnownHostsFile=/dev/null \
-        user1@${aws_instance.ccmall_web.public_ip} \
-        "echo connected" >/dev/null 2>&1
-      do
-        echo "SSH 아직 안됨... 5초 후 재시도"
-        sleep 5
-      done
+      sleep 10
 
       echo "======================================"
       echo " Ansible DB Setup Playbook 시작!"
