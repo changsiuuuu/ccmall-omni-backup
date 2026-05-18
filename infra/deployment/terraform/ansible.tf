@@ -74,7 +74,8 @@ resource "terraform_data" "bootstrap_user1" {
     aws_instance.ccmall_rec,      # Rec 서버 생성 완료 후
     local_file.ccmall_ssh_key,    # SSH Private Key 생성 완료 후
     local_file.ansible_inventory, # inventory.yml 생성 완료 후
-    local_file.ansible_cfg        # ansible.cfg 생성 완료 후
+    local_file.ansible_cfg,       # ansible.cfg 생성 완료 후
+    local_file.ccmall_ssh_key_pub # public key 생성 완료 후
   ]
 
   triggers_replace = {
@@ -104,6 +105,7 @@ resource "terraform_data" "bootstrap_user1" {
       ansible-playbook \
         -u ec2-user \
         --private-key ${local.ccmall_ssh_key_file} \
+        -e "bootstrap_public_key_file=${local.ccmall_ssh_key_file}.pub" \
         ${local.bootstrap_playbook}
 
       echo "======================================"
@@ -212,7 +214,9 @@ resource "terraform_data" "run_deploy_web_playbook" {
     aws_instance.ccmall_rec,        # Rec 서버 생성 완료 후
     local_file.ansible_inventory,   # inventory.yml 생성 완료 후
     local_file.ansible_cfg,         # ansible.cfg 생성 완료 후
-    terraform_data.bootstrap_user1  # bootstrap 완료 후
+    terraform_data.bootstrap_user1, # bootstrap 완료 후
+    cloudflare_record.ccmall_root,  # cloudflare dns 생성 후
+    time_sleep.wait_for_dns         # dns 전파시간 대기 후
   ]
 
 
