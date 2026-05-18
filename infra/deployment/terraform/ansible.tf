@@ -179,10 +179,11 @@ resource "terraform_data" "run_db_setup_playbook" {
       until ssh -i ${local.ansible_key_file} \
         -o StrictHostKeyChecking=no \
         -o UserKnownHostsFile=/dev/null \
-        user1@${aws_instance.ccmall_web.public_ip} \
+        -o ProxyCommand="ssh -i ${local.ansible_key_file} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p -q user1@${aws_instance.ccmall_web.public_ip}" \
+        user1@${aws_instance.ccmall_rec.private_ip} \
         "echo connected" >/dev/null 2>&1
       do
-        echo "SSH 아직 안됨... 5초 후 재시도"
+        echo "Rec SSH 아직 안됨... 5초 후 재시도"
         sleep 5
       done
 
