@@ -12,13 +12,13 @@ db_svc: "{{ 'postgresql' if ansible_distribution == 'Amazon' else 'postgresql-15
 db_dir: "{{ '/var/lib/pgsql/data' if ansible_distribution == 'Amazon' else '/var/lib/pgsql/15/data' }}"
 db_port: "5432"
 
-db_name: "test"
+db_name: "ccmall_db"
 db_user: "ccmall_user"
-db_pw: "1234"
+db_pw: "user1"
 
 client_cidr: "0.0.0.0/0"
 
-# Tailscale 관련
+## Tailscale 관련
 tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH') }}"
 tailscale_api_key: "{{ lookup('env', 'TAILSCALE_TOKEN') }}"
 tailnet_name: "zeoxixx@gmail.com"
@@ -26,13 +26,13 @@ tailnet_name: "zeoxixx@gmail.com"
 ec2_cidr: "10.0.0.0/16"
 local_cidr: "192.168.64.0/24"
 
-# 도메인 / HTTPS
-ccmall_domain: "ccmall.example.com"
-certbot_email: "zeoxixx@gmail.com"
 
-# Cloudflare Tunnel Token
+
+## Cloudflare Tunnel Token
 cloudflared_token: "여기에_Cloudflare_Tunnel_Token"
+database_url: "postgresql://ccmall_user:user1@172.16.8.201:5432/ccmall_db"
 
+# nginx, https
 app_name: ccmall
 app_user: ec2-user
 app_dir: /home/ec2-user/ccmall-omni-backup
@@ -40,6 +40,7 @@ app_repo: "https://github.com/hacksungboo/ccmall-omni-backup.git"
 app_branch: master
 app_module: "app.main:app"
 app_port: 8000
-server_name: "_"
 
-database_url: "postgresql://ccmall_user:user1@172.16.8.201:5432/ccmall_db"
+server_name: "ccmall.shop"
+ccmall_domain: "ccmall.shop"
+certbot_email: "gkrtjdqn@gmail.com"
