@@ -162,6 +162,7 @@ resource "terraform_data" "run_db_setup_playbook" {
     aws_instance.ccmall_rec,
     local_file.ansible_inventory,
     local_file.ansible_cfg,
+    terraform_data.bootstrap_user1,
     terraform_data.run_monitoring_playbook 
   ]
 
@@ -178,7 +179,7 @@ resource "terraform_data" "run_db_setup_playbook" {
       echo " user1 SSH 연결 대기 중..."
       echo "======================================"
 
-      until ssh -i ${local.ansible_key_file} \
+      until ssh -i ${local.ccmall_ssh_key_file} \
         -o StrictHostKeyChecking=no \
         -o UserKnownHostsFile=/dev/null \
         user1@${aws_instance.ccmall_web.public_ip} \
