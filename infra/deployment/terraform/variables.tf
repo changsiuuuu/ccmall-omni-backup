@@ -102,7 +102,3 @@ variable "cloudflare_zone_name" {
   type        = string
   default     = "ccmall.shop"
 }
-
-variable "ansible_public_key" {
-  type = string
-}
