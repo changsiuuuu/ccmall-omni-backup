@@ -108,6 +108,7 @@ resource "terraform_data" "bootstrap_user1" {
         -u ec2-user \
         --private-key ${local.ccmall_ssh_key_file} \
         -e "bootstrap_public_key_file=${local.ccmall_ssh_key_file}.pub" \
+        -e "ansible_public_key_file=${local.ansible_public_key_file}" \
         ${local.bootstrap_playbook}
 
       echo "======================================"
