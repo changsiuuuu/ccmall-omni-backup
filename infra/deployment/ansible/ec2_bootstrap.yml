@@ -37,11 +37,11 @@
         key: "{{ lookup('file', bootstrap_public_key_file) }}"
         manage_dir: yes
 
-    - name: "4-2. mgmt 서버의 ansiblekey.pem.pub를 user1 authorized_keys에 등록"
-      authorized_key:
+    - name: "4-2. GitHub Secret의 ansible public key를 user1 authorized_keys에 등록"
+      ansible.posix.authorized_key:
         user: user1
         state: present
-        key: "{{ lookup('file', ansible_public_key_file) }}"
+        key: "{{ ansible_public_key }}"
         manage_dir: yes
 
     - name: "5. authorized_keys 권한 보정"
