@@ -15,7 +15,6 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  secrets: write
 
 jobs:
   plan:
@@ -74,7 +73,7 @@ jobs:
       TF_VAR_cloudflare_api_token: ${{ secrets.TF_VAR_CLOUDFLARE_API_TOKEN }}
       TF_VAR_cloudflare_zone_name: ${{ secrets.TF_VAR_CLOUDFLARE_ZONE_NAME }}
       GH_TOKEN: ${{ secrets.TOKEN_GITHUB }}
-      
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
