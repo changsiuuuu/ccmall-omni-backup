@@ -8,7 +8,6 @@ resource "terraform_data" "prepare_ansible_dirs" {
     # 기존 폴더 생성 로직 + S3 버킷 이름 환경변수 등록 로직 통합
     command = <<-EOT
       mkdir -p ${local.inventory_dir}
-      echo "export BACKUP_S3_BUCKET='${aws_s3_bucket.ccmall_bucket.bucket}'" >> ~/.bashrc
       # 현재 실행 중인 쉘 세션에도 즉시 반영
       export BACKUP_S3_BUCKET='${aws_s3_bucket.ccmall_bucket.bucket}'
     EOT
@@ -84,7 +83,7 @@ resource "terraform_data" "bootstrap_user1" {
   triggers_replace = {
     web_instance_id  = aws_instance.ccmall_web.id
     rec_instance_id  = aws_instance.ccmall_rec.id
-    ccmall_public_key = tls_private_key.ccmall_private_key.public_key_openssh
+    #1ccmall_public_key = tls_private_key.ccmall_private_key.public_key_openssh
   }
 
   provisioner "local-exec" {
@@ -98,7 +97,7 @@ resource "terraform_data" "bootstrap_user1" {
 
       # ccmall-key.pem의 공개키를 ccmall-key.pem.pub으로 저장
       # 이후 user1의 authorized_keys에 ccmall-key.pem.pub이 등록된다.
-      ssh-keygen -y -f ${local.ccmall_ssh_key_file} > ${local.ccmall_ssh_key_file}.pub
+      #2ssh-keygen -y -f ${local.ccmall_ssh_key_file} > ${local.ccmall_ssh_key_file}.pub
 
       echo "======================================"
       echo " Ansible Bootstrap Playbook 시작!"
@@ -153,9 +152,7 @@ resource "terraform_data" "run_monitoring_playbook" {
       echo "======================================"
       ANSIBLE_CONFIG=${local.ansible_cfg} \
       ANSIBLE_SSH_PIPELINING=1 \
-      ansible-playbook \
-        --private-key ${local.ccmall_ssh_key_file} \
-        monitoring/playbook.yml
+      ansible-playbook monitoring/playbook.yml
 
       echo "======================================"
       echo " Monitoring Playbook 완료!"
@@ -195,9 +192,7 @@ resource "terraform_data" "run_db_setup_playbook" {
       echo "======================================"
       ANSIBLE_CONFIG=${local.ansible_cfg} \
       ANSIBLE_SSH_PIPELINING=1 \
-      ansible-playbook \
-        --private-key ${local.ccmall_ssh_key_file} \
-        deployment/ansible/db_setup.yml -vvv
+      ansible-playbook deployment/ansible/db_setup.yml
 
       echo "======================================"
       echo " DB Setup Playbook 완료!"
@@ -218,7 +213,7 @@ resource "terraform_data" "run_deploy_web_playbook" {
     aws_instance.ccmall_rec,        # Rec 서버 생성 완료 후
     local_file.ansible_inventory,   # inventory.yml 생성 완료 후
     local_file.ansible_cfg,         # ansible.cfg 생성 완료 후
-    terraform_data.bootstrap_user1, # bootstrap 완료 후
+    terraform_data.bootstrap_user1,
     cloudflare_record.ccmall_root,  # cloudflare dns 생성 후
     time_sleep.wait_for_dns         # dns 전파시간 대기 후
   ]
@@ -243,9 +238,7 @@ resource "terraform_data" "run_deploy_web_playbook" {
       echo "======================================"
       ANSIBLE_CONFIG=${local.ansible_cfg} \
       ANSIBLE_SSH_PIPELINING=1 \
-      ansible-playbook \
-        --private-key ${local.ccmall_ssh_key_file} \
-        deployment/ansible/deploy_web.yml
+      ansible-playbook deployment/ansible/deploy_web.yml
 
       echo "======================================"
       echo " Web Deploy Playbook 완료!"
