@@ -31,7 +31,7 @@ locals {
   
   # 부트스트랩 이후 운영 접속용 key
   ansible_key_file = "/home/user1/.ssh/ansiblekey.pem"
-
+  ansible_public_key_file = "/home/user1/.ssh/ansiblekey.pem.pub"
   # 부트스트랩 playbook 위치
   bootstrap_playbook = "${local.deployment_dir}/ansible/ec2_bootstrap.yml"
 }
