@@ -87,9 +87,9 @@ def backup_full_db_to_s3():
     print(f"[S3 백업 완료] s3://{BACKUP_S3_BUCKET}/{s3_key}")
 
 
-# =======================
+# =============================
 # 2. inventorys 전체 동기화
-# =======================
+# =============================
 def sync_inventorys_to_rec():
     onprem_conn = get_conn(DB_HOST, DB_PASS, DB_PORT)
     rec_conn = get_conn(REC_DB_HOST, REC_DB_PASS, REC_DB_PORT)
