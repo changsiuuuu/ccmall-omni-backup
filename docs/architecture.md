@@ -13,27 +13,35 @@
                         [사용자]
                            │
                       [Cloudflare]
-                      DNS / Failover
+                      DNS / HTTPS
                            │
-                      [EC2-1]  ← Public 서브넷 (공인 IP)
-                       nginx
+                      [EC2-1 Web]  ← Public 서브넷
+                       Nginx (HTTPS, Let's Encrypt)
                        FastAPI + Jinja2
                            │
-              ┌────────────┴────────────┐
-           평상시                     장애시
-              │                         │
-        [온프렘 DB]               [EC2-2 DB]
-         메인 PostgreSQL           예비 PostgreSQL
-         (로컬 서버)               Private 서브넷
-              │                         ▲
-              ├──── 주기적 백업 ────────┘
-              │     (APScheduler)
-              │
-              └──── 콜드 데이터 이관 ──→ [S3]
-                    (3개월↑)               ├─ 주문내역
-                                          ├─ 사진 리뷰
-                                          └─ 로그 (nginx/FastAPI/DB)
+                           │ DB 연결
+                           │ (.env의 DB_HOST 동적 변경)
+                           │
+              ┌────────────┼────────────┬─────────────┐
+           [정상]       [장애 발생]  [복구 중]      [복구 완료]
+              │            │            │               │
+              ▼            ▼            ▼               ▼
+        [rocky01]     [EC2-2 Rec]  [EC2-3 신규]    [EC2-3 메인]
+        온프렘 메인 DB  예비 DB     자동 프로비저닝   복구된 메인 DB
+        PostgreSQL    Warm Standby  (Terraform)    PostgreSQL
+             ▲            ▲             ▲
+             │            │             │
+             │   주기적    │             │ 백업 복원
+             │   동기화    │             │
+             └────────────┤             │                               
+                          │             │
+                          ▼             │
+                        [S3 백업]────────┘
+                       매일 전체 백업
+                       콜드 데이터 (3개월+)
 
+                          
+```
 📊 모니터링: Prometheus + Grafana
 🔐 네트워크: Tailscale VPN (온프렘 ↔ EC2)
 🔒 IaC 상태: S3 (tfstate) + DynamoDB (lock)
@@ -41,68 +49,95 @@
 
 ---
 
-## 컴포넌트 설명
+### 1. 사용자 트래픽 경로
 
-### EC2-1 (웹 서버) - Public 서브넷
-- nginx: 리버스 프록시
-- FastAPI + Jinja2: 백엔드 및 HTML 렌더링
-- 평상시 온프렘 DB와 통신
+- 사용자 → Cloudflare DNS → EC2-Web
+- HTTPS 인증서: Let's Encrypt
+- 도메인: everton.cloud
 
-### EC2-2 (예비 DB 서버) - Private 서브넷
-- PostgreSQL: 예비 DB (온프렘 DB 백업 수신)
-- 외부 직접 접근 불가, EC2-1 통해 점프 접속
-- 온프렘 DB 장애 시 Primary로 승격
+### 2. AWS 인프라
 
-### 온프렘 (로컬 서버)
-- PostgreSQL: 메인 DB (Primary)
-- APScheduler: EC2-2 백업 + S3 콜드 데이터 이관
-- Tailscale VPN으로 EC2와 통신
-- Prometheus + Grafana: 모니터링
+| 컴포넌트 | 역할 | 위치 |
+|---------|------|------|
+| EC2-Web | Nginx + FastAPI | Public Subnet |
+| EC2-Rec | 예비 DB + 모니터링 + Tailscale 라우터 | Private Subnet |
+| EC2-3 | 장애 복구용 신규 DB (동적 생성) | Private Subnet |
+| EC2-NAT | Private 인스턴스의 인터넷 게이트웨이 | Public Subnet |
+| S3 Bucket | DB 백업 저장소 | - |
 
-### S3
-- `ccmall-tfstate`: Terraform 상태파일 저장
-- `ccmall-backup`: 콜드 데이터 저장 (주문내역, 사진 리뷰, 로그)
-- 사진 리뷰는 업로드 즉시 S3 저장, DB에는 URL만 보관
+### 3. 온프렘
 
-### DynamoDB
-- `ccmall-terraform-lock`: Terraform 상태 잠금 (동시 실행 방지)
+- **rocky01** (172.16.8.201): 메인 PostgreSQL 서버, mgmt 역할
+- Tailscale 통해 AWS와 연결
 
-### Cloudflare
-- DNS 관리 및 장애 감지 시 Failover
 
-### Tailscale VPN
-- 온프렘 ↔ EC2 프라이빗 네트워크 구성
+### 4. VPN (Tailscale)
 
----
+- 온프렘 ↔ AWS 안전한 연결
+- ccmall-Rec이 AWS 측 subnet router
+- rocky01이 온프렘 측 subnet router
+- 양쪽이 서로의 사설 IP 대역을 라우팅
 
-## 네트워크 구조
+### 5. CI/CD (GitHub Actions)
 
 ```
-[사용자] ──→ EC2-1 (Public, 공인 IP)
-
-온프렘
-  └── Tailscale VPN ──→ EC2-1 (Public)
-                    └──→ EC2-2 (Private, EC2-1 통해 점프 접속)
-
-EC2-1 ──→ EC2-2 (VPC 내부)
-EC2-1 ──→ S3 ccmall-backup (이미지 URL 참조)
-온프렘 ──→ S3 ccmall-backup (콜드 데이터 이관)
-온프렘 ──→ S3 ccmall-tfstate (tfstate 저장)
-EC2-2 ──→ S3 ccmall-backup (복구 시 다운로드)
+개발자 push
+    ↓
+GitHub Actions runner (Ubuntu)
+    ↓
+Terraform: AWS 리소스 생성/변경
+    ↓
+Ansible: 서버 구성 (Nginx, FastAPI, PostgreSQL 등)
 ```
 
----
+### 6. 모니터링 (EC2-Rec)
 
-## 데이터 계층 전략
+- **Prometheus**: 메트릭 수집 (15초 간격)
+- **Grafana**: 대시보드 시각화
+- **Alertmanager**: 알림 (텔레그램 봇)
+- **node_exporter**: 모든 서버에 설치
+- **postgres_exporter**: DB 서버에 설치
 
-| 데이터 | 저장 위치 | 이관 기준 |
-|--------|---------|---------|
-| 회원 정보 | 온프렘 DB + EC2-2 | - |
-| 상품 / 재고 | 온프렘 DB + EC2-2 | - |
-| 진행중 주문 | 온프렘 DB + EC2-2 | - |
-| 3개월↑ 주문내역 | S3 ccmall-backup | 매일 새벽 자동 이관 |
-| 사진 리뷰 | S3 ccmall-backup | 업로드 즉시 S3 저장 |
-| 3개월↑ 로그 | S3 ccmall-backup | 매일 새벽 자동 이관 |
+### 7. 백업 시스템
+
+#### 정기 백업
+- **매일 00:00**: rocky01에서 전체 백업 → S3 업로드
+- **1시간 마다**: 핵심 테이블 → EC2-Rec 동기화 (Warm Standby)
+
+#### 백업 대상
+- 데이터: customers, inventorys, orders, admins 테이블
+- 콜드 데이터: 3개월 이상 된 주문/리뷰/로그 → S3 이관
+
+## 재해 복구 시나리오
+
+### 정상 상태
+```
+사용자 → EC2-Web → rocky01 (메인 DB)
+              └→ EC2-Rec (Warm Standby, 핵심 데이터만)
+```
+
+### 장애 발생
+```
+1. rocky01 다운
+2. Prometheus → Alertmanager → 텔레그램 알림
+3. mgmt에서 Ansible 실행:
+   - EC2-Web의 .env DB_HOST 변경 (→ EC2-Rec)
+   - ccmall 서비스 재시작
+4. 사용자 트래픽이 EC2-Rec으로 전환
+```
+
+### 백그라운드 복구
+```
+1. Terraform으로 EC2-3 신규 프로비저닝
+2. S3 최신 백업 → EC2-3 복원
+3. mgmt에서 Ansible 실행:
+   - EC2-Web의 .env DB_HOST 변경 (→ EC2-3)
+   - ccmall 서비스 재시작
+4. EC2-3가 새 메인 DB로 동작
+5. EC2-Rec은 다시 예비 상태로 복귀
+```
+
+
 
 ---
 
@@ -138,36 +173,26 @@ GitHub Actions (ubuntu 임시 서버)
         └─ 완료 ✅ (ubuntu 임시 서버 사라짐)
 
 
-```
 
 ---
-
-## 장애 복구 시나리오
-
-```
-1. 온프렘 DB 장애 감지 (Prometheus Alert)
-2. EC2-2 DB → Primary 승격 (Ansible)
-3. EC2-1 DB 연결 정보 → EC2-2로 전환
-4. 서비스 정상화 ✅
-5. 온프렘 복구 후 재동기화
-```
-
----
-
 ## 기술 스택
 
 | 분류 | 기술 |
 |------|------|
-| 인프라 | Terraform, AWS (EC2, S3, VPC, DynamoDB) |
-| 서버 설정 자동화 | Ansible |
-| 웹 서버 | nginx |
-| 백엔드 | FastAPI + Jinja2 (Python 3.11) |
-| 데이터베이스 | PostgreSQL |
-| 백업 / 이관 | APScheduler, boto3 |
-| 모니터링 | Prometheus, Grafana |
-| VPN | Tailscale |
-| DNS / Failover | Cloudflare |
+| IaC | Terraform |
+| 구성 관리 | Ansible |
 | CI/CD | GitHub Actions |
+| 클라우드 | AWS (EC2, S3, VPC, IAM) |
+| VPN | Tailscale |
+| OS | Amazon Linux 2023, Rocky Linux 9 |
+| 웹 서버 | Nginx |
+| 백엔드 | Python, FastAPI |
+| DB | PostgreSQL 15 |
+| HTTPS | Let's Encrypt (certbot) |
+| 모니터링 | Prometheus, Grafana, Alertmanager |
+| 알림 | Telegram Bot |
+| 백업 | pg_dump + AWS S3 |
+| 스케줄러 | APScheduler |
 
 ---
 
@@ -178,10 +203,8 @@ ccmall-omni-backup/
 ├── app/
 │   ├── api/
 │   ├── core/
-│   ├── crud/
 │   ├── models/
 │   ├── schemas/
-│   ├── services/
 │   └── tasks/
 ├── infra/
 │   ├── deployment/
@@ -191,7 +214,7 @@ ccmall-omni-backup/
 │   ├── monitoring/
 │   └── recovery/
 ├── docs/
-├── cicd/
+├── .github/
 ├── static/
 └── requirements.txt
 ```
