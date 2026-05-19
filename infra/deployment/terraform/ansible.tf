@@ -8,9 +8,9 @@ resource "terraform_data" "prepare_ansible_dirs" {
     # 기존 폴더 생성 로직 + S3 버킷 이름 환경변수 등록 로직 통합
     command = <<-EOT
       mkdir -p ${local.inventory_dir}
-      grep -q "^export BACKUP_S3_BUCKET=" /home/user1/.bashrc && \
-        sed -i "s|^export BACKUP_S3_BUCKET=.*|export BACKUP_S3_BUCKET='${aws_s3_bucket.ccmall_bucket.bucket}'|" /home/user1/.bashrc || \
-        echo "export BACKUP_S3_BUCKET='${aws_s3_bucket.ccmall_bucket.bucket}'" >> /home/user1/.bashrc
+      grep -q "^export BACKUP_S3_BUCKET=" $HOME/.bashrc && \
+        sed -i "s|^export BACKUP_S3_BUCKET=.*|export BACKUP_S3_BUCKET='${aws_s3_bucket.ccmall_bucket.bucket}'|" $HOME/.bashrc || \
+        echo "export BACKUP_S3_BUCKET='${aws_s3_bucket.ccmall_bucket.bucket}'" >> $HOME/.bashrc
     EOT
   }
 }
