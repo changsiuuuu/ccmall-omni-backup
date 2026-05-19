@@ -5,7 +5,19 @@
 - 프로젝트 목표: 장애 상황에서도 서비스가 유지될 수 있는 자동 백업/복구 체계 구축
 ---
 
-## 🛠 1. Tech Stack & Infrastructure
+## 핵심 기능
+
+- **IaC**: Terraform으로 AWS 인프라 코드 관리
+- **자동 구성**: Ansible로 서버 셋업 자동화
+- **CI/CD**: GitHub Actions로 코드 push만으로 배포
+- **하이브리드 VPN**: Tailscale로 온프렘-AWS 연결
+- **자동 페일오버**: 메인 DB 장애 시 예비 DB로 전환
+- **재해 복구**: 신규 인스턴스 프로비저닝 + S3 백업 복원
+- **모니터링**: Prometheus + Grafana + 텔레그램 알림
+
+---
+
+## 🛠 Tech Stack & Infrastructure
 - **Language**: Python 3.11.7
 - **Backend**: FastAPI 0.109.0
 - **Database**: PostgreSQL 15 (Docker)
@@ -15,17 +27,51 @@
 - **CI/CD**: GitHub Actions (Docker Build & Push)
 
 ---
+
+## 아키텍처
+
+
 ```
-## 📁 2. Directory Structure
+                        [사용자]
+                           │
+                      [Cloudflare]
+                      DNS / HTTPS
+                           │
+                      [EC2-1 Web]  ← Public 서브넷
+                       Nginx (HTTPS, Let's Encrypt)
+                       FastAPI + Jinja2
+                           │
+                           │ DB 연결
+                           │ (.env의 DB_HOST 동적 변경)
+                           │
+              ┌────────────┼────────────┬─────────────┐
+           [정상]       [장애 발생]  [복구 중]      [복구 완료]
+              │            │            │               │
+              ▼            ▼            ▼               ▼
+        [rocky01]     [EC2-2 Rec]  [EC2-3 신규]    [EC2-3 메인]
+        온프렘 메인 DB  예비 DB     자동 프로비저닝   복구된 메인 DB
+        PostgreSQL    Warm Standby  (Terraform)    PostgreSQL
+             ▲            ▲             ▲
+             │            │             │
+             │   주기적   │             │ 백업 복원
+             │   동기화   │             │
+             └────────────┤             │                               
+                          │             │
+                          ▼             │
+                       [S3 백업]────────┘
+                       매일 전체 백업
+                       콜드 데이터 (3개월+)
+```
+
+```
+## 📁 Directory Structure
 
 ccmall-omni-backup/
 ├── app/                      # FastAPI 애플리케이션 (백엔드)
 │   ├── api/                  # API 라우터 및 엔드포인트 (customers, inventory, orders)
 │   ├── core/                 # DB 연결, 환경변수 등 전역 설정
-│   ├── crud/                 # DB CRUD 쿼리 로직
 │   ├── models/               # SQLAlchemy DB 테이블 스키마
 │   ├── schemas/              # Pydantic 데이터 검증 및 응답 스키마
-│   ├── services/             # S3 연동 등 외부 비즈니스 로직
 │   ├── tasks/                # APScheduler 백업/이관 스케줄러 로직
 │   └── main.py               # 애플리케이션 진입점 (Entry Point)
 │
@@ -33,7 +79,6 @@ ccmall-omni-backup/
 │   ├── deployment/           # 인프라 구축 자동화
 │   │   ├── ansible/          # EC2 초기세팅, 패키지 설치 (roles 구조)
 │   │   └── terraform/        # AWS 인프라 리소스 생성 코드
-│   ├── backup/               # DB 백업 자동화 (Ansible Playbooks)
 │   ├── monitoring/           # Prometheus, Grafana, Alertmanager 설치
 │   ├── recovery/             # 장애 복구 (EC2-Rec 승격, 재동기화)
 │   ├── inventory/            # Terraform이 자동 생성하는 인벤토리 폴더
@@ -58,31 +103,31 @@ ccmall-omni-backup/
 └── requirements.txt          # Python 의존성 패키지 목록
 ```
 
-- ## 📅3. 프로젝트 진행 방식 (Operational Process)
+- ## 📅 프로젝트 진행 방식 (Operational Process)
 우리 팀은 효율적인 개발과 완벽한 결과물 도출을 위해 아래와 같은 프로세스를 준수합니다.
 
-### 3.1 Agile Development Workflow
+### 1 Agile Development Workflow
 - Sprint Planning: 주차별 마일스톤 수립 및 기술 스택 확정
 - Daily Scrum: 매일 업무 대시보드 업데이트 및 담당자 배정
 - Local-First Development: 컨테이너 기반 로컬 환경에서 선 검증 후 운영 서버 반영
 - Knowledge Sharing: 일일 업무 종료 전 기술 공유 및 트러블슈팅 내역 문서화
 
-### 3.2 System Reliability Strategy
+### 2 System Reliability Strategy
 - Data Integrity: APScheduler 기반의 S3 자동 백업 및 무결성 검증
 - Real-time Alerting: 시스템 장애 및 백업 실패 시 Slack 실시간 알림 알림 연동
 - Disaster Recovery: automation/ 스크립트를 활용한 신속한 서비스 복구 체계 가동
 
 ---
 
-## 🤝 4. 팀 협업 및 코드 관리 규칙 Collaboration & Governance
+## 🤝 팀 협업 및 코드 관리 규칙 Collaboration & Governance
 
-### 4.1 Branch & PR Strategy (Git-Flow)
+### 1 Branch & PR Strategy (Git-Flow)
 - master: 프로덕션 배포 브랜치 (Strictly Protected)
 - feature/: 기능 단위 개발 브랜치
 - Code Review: 모든 변경 사항은 팀장 승인(Approve) 후 Merge를 원칙으로 함
 - Documentation: PR 작성 시 작업 상세, 테스트 결과, 관련 이슈 명시 필수
 
-### 4.2 커밋 메시지 컨벤션(Commit_Convention)
+### 2 커밋 메시지 컨벤션(Commit_Convention)
 | Type | 설명 | 예시 |
 | :--- | :--- | :--- |
 | **feat** | 새로운 기능 구현 | `feat: 재고관리 API 구현` |
