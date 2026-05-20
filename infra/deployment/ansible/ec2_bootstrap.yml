@@ -1,7 +1,7 @@
 # infra/deployment/ansible/ec2_bootstrap.yml
 ---
 - name: "EC2 인스턴스에 초기 세팅"
-  hosts: all
+  hosts: "ccmall-Web:ccmall-Rec"
   become: yes
 
   tasks:

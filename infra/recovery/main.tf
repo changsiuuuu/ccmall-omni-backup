@@ -126,6 +126,10 @@ resource "local_file" "inventory" {
   content = yamlencode({
     all = {
       hosts = {
+        "mgmt" = {
+          ansible_host       = "localhost"
+          ansible_connection = "local"
+        }
         "ccmall-Recovery-ec2" = {
           ansible_host                 = aws_instance.ccmall-Recovery-ec2.private_ip
           ansible_user                 = "ec2-user"

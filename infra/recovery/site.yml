@@ -1,5 +1,5 @@
 - name: PostgreSQL 설치 및 S3 복구 + Tailscale 연결
-  hosts: all
+  hosts: ccmall-Recovery-ec2
   become: true
 
   vars:
@@ -134,60 +134,60 @@
         enabled: yes
         daemon_reload: yes
 
-    - name: 20. EC2-Rec 현재 DB 동기화 및 무결성 검증
-      become_user: postgres
-      shell: |
-        set -e
+    # - name: 20. EC2-Rec 현재 DB 동기화 및 무결성 검증
+    #   become_user: postgres
+    #   shell: |
+    #     set -e
 
-        echo "=== EC2-Rec({{ rec_db_host }}) 연결 확인 ==="
-        if ! timeout 5 bash -c 'echo > /dev/tcp/{{ rec_db_host }}/5432' 2>/dev/null; then
-          echo "[오류] EC2-Rec PostgreSQL(5432) 연결 불가 - 보안 그룹 또는 서비스 확인 필요" >&2
-          exit 1
-        fi
+    #     echo "=== EC2-Rec({{ rec_db_host }}) 연결 확인 ==="
+    #     if ! timeout 5 bash -c 'echo > /dev/tcp/{{ rec_db_host }}/5432' 2>/dev/null; then
+    #       echo "[오류] EC2-Rec PostgreSQL(5432) 연결 불가 - 보안 그룹 또는 서비스 확인 필요" >&2
+    #       exit 1
+    #     fi
 
-        echo "=== EC2-Rec({{ rec_db_host }}) 현재 DB 덤프 ==="
-        PGPASSWORD={{ db_password }} PGCONNECT_TIMEOUT=10 pg_dump \
-          -h {{ rec_db_host }} \
-          -U {{ db_user }} \
-          -d {{ db_name }} \
-          --no-owner \
-          --no-acl \
-          -f /tmp/rec_live.sql
+    #     echo "=== EC2-Rec({{ rec_db_host }}) 현재 DB 덤프 ==="
+    #     PGPASSWORD={{ db_password }} PGCONNECT_TIMEOUT=10 pg_dump \
+    #       -h {{ rec_db_host }} \
+    #       -U {{ db_user }} \
+    #       -d {{ db_name }} \
+    #       --no-owner \
+    #       --no-acl \
+    #       -f /tmp/rec_live.sql
 
-        if [ ! -s /tmp/rec_live.sql ]; then
-          echo "[오류] pg_dump 실패 - 파일이 없거나 비어있음" >&2
-          exit 1
-        fi
+    #     if [ ! -s /tmp/rec_live.sql ]; then
+    #       echo "[오류] pg_dump 실패 - 파일이 없거나 비어있음" >&2
+    #       exit 1
+    #     fi
 
-        echo "=== ccmall-Recovery-ec2 DB 재적재 ==="
-        psql {{ db_name }} -c "
-          DROP SCHEMA public CASCADE;
-          CREATE SCHEMA public;
-          GRANT ALL ON SCHEMA public TO {{ db_user }};
-          GRANT ALL ON SCHEMA public TO public;
-        "
-        psql {{ db_name }} < /tmp/rec_live.sql
-        rm -f /tmp/rec_live.sql
+    #     echo "=== ccmall-Recovery-ec2 DB 재적재 ==="
+    #     psql {{ db_name }} -c "
+    #       DROP SCHEMA public CASCADE;
+    #       CREATE SCHEMA public;
+    #       GRANT ALL ON SCHEMA public TO {{ db_user }};
+    #       GRANT ALL ON SCHEMA public TO public;
+    #     "
+    #     psql {{ db_name }} < /tmp/rec_live.sql
+    #     rm -f /tmp/rec_live.sql
 
-        echo "=== 무결성 검증 ==="
-        FAILED=0
-        for TABLE in customers inventorys orders admins; do
-          COUNT=$(psql -d {{ db_name }} -tAc "SELECT COUNT(*) FROM $TABLE;" 2>/dev/null)
-          if [ $? -ne 0 ]; then
-            echo "[오류] 테이블 없음: $TABLE" >&2
-            FAILED=1
-          else
-            echo "[검증] $TABLE: ${COUNT}건"
-          fi
-        done
+    #     echo "=== 무결성 검증 ==="
+    #     FAILED=0
+    #     for TABLE in customers inventorys orders admins; do
+    #       COUNT=$(psql -d {{ db_name }} -tAc "SELECT COUNT(*) FROM $TABLE;" 2>/dev/null)
+    #       if [ $? -ne 0 ]; then
+    #         echo "[오류] 테이블 없음: $TABLE" >&2
+    #         FAILED=1
+    #       else
+    #         echo "[검증] $TABLE: ${COUNT}건"
+    #       fi
+    #     done
 
-        if [ $FAILED -eq 1 ]; then
-          echo "무결성 검증 실패 - database.py 전환 중단" >&2
-          exit 1
-        fi
-        echo "동기화 및 무결성 검증 완료"
-      args:
-        executable: /bin/bash
+    #     if [ $FAILED -eq 1 ]; then
+    #       echo "무결성 검증 실패 - database.py 전환 중단" >&2
+    #       exit 1
+    #     fi
+    #     echo "동기화 및 무결성 검증 완료"
+    #   args:
+    #     executable: /bin/bash
 
     - name: 20-1. ccmall_user 권한 보정
       become_user: postgres
@@ -219,6 +219,7 @@
 
     - name: 21. ccmall-Web DB_HOST를 Recovery EC2(10.0.2.40)로 전환
       delegate_to: localhost
+      run_once: true
       become: false
       shell: |
         ssh -i /home/user1/.ssh/ansiblekey2.pem \
@@ -227,3 +228,24 @@
             user1@{{ web_host }} \
             "sudo sed -i 's/^DB_HOST=.*/DB_HOST=10.0.2.40/' /etc/ccmall/ccmall.env && sudo systemctl restart ccmall && sudo systemctl restart nginx"
 
+- name: mgmt Prometheus에 recovery target 등록
+  hosts: mgmt
+  become: true
+  tasks:
+    - name: ec2-db-2 scrape job 추가
+      blockinfile:
+        path: /etc/prometheus/prometheus.yml
+        marker: "# {mark} ANSIBLE MANAGED RECOVERY EC2-DB-2"
+        insertbefore: EOF
+        block: |
+          - job_name: 'ccmall-Recovery-ec2'
+            static_configs:
+              - targets: ['10.0.2.40:9100']
+
+    - name: Prometheus 설정 검증
+      shell: promtool check config /etc/prometheus/prometheus.yml
+
+    - name: Prometheus 재시작
+      systemd:
+        name: prometheus
+        state: restarted
