@@ -15,6 +15,18 @@ resource "terraform_data" "prepare_ansible_dirs" {
   }
 }
 
+# 모니터링을 위한 mgmt 접속용 키 (github action -> mgmt)
+resource "local_sensitive_file" "mgmt_ssh_key" {
+  filename        = "${local.inventory_dir}/keys/ansiblekey2.pem"
+  content         = var.mgmt_private_key
+  file_permission = "0600"
+
+  depends_on = [
+    terraform_data.prepare_ansible_dirs
+  ]
+}
+
+
 # public ip와 private ip를 이용해서 infra/inventory/inventory.yml 파일 만들기
 # inventory는 ccmall-Web, ccmall-Rec만 단순하게 정의한다.
 # 접속 사용자와 key는 ansible.cfg 또는 실행 명령어에서 결정한다.
@@ -22,7 +34,8 @@ resource "local_file" "ansible_inventory" {
   filename = local.inventory_file
 
   depends_on = [
-    terraform_data.prepare_ansible_dirs
+    terraform_data.prepare_ansible_dirs,
+    local_sensitive_file.mgmt_ssh_key
   ]
 
   content = yamlencode({
@@ -33,8 +46,10 @@ resource "local_file" "ansible_inventory" {
           ansible_host = aws_instance.ccmall_web.public_ip
         }
         "mgmt" = {
-          ansible_host       = "localhost"
-          ansible_connection = "local"
+          ansible_host                 = var.mgmt_host
+          ansible_user                 = var.mgmt_user
+          ansible_ssh_private_key_file = local_sensitive_file.mgmt_ssh_key.filename
+          ansible_ssh_common_args      = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GSSAPIAuthentication=no"
         }
         # ccmall-Rec은 private subnet에 있으므로 ccmall-Web을 통해 점프 접속한다.
         "ccmall-Rec" = {
@@ -133,6 +148,7 @@ resource "terraform_data" "run_monitoring_playbook" {
     aws_instance.ccmall_rec,       # Rec 서버 생성 완료 후
     local_file.ansible_inventory,  # inventory.yml 생성 완료 후
     local_file.ansible_cfg,        # ansible.cfg 생성 완료 후
+    local_sensitive_file.mgmt_ssh_key,
     terraform_data.bootstrap_user1 # bootstrap 완료 후
   ]
 
