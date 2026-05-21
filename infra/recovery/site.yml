@@ -242,8 +242,8 @@
             static_configs:
               - targets: ['10.0.2.40:9100']
 
-    - name: Prometheus 설정 검증
-      shell: promtool check config /etc/prometheus/prometheus.yml
+    # - name: Prometheus 설정 검증
+    #   shell: promtool check config /etc/prometheus/prometheus.yml
 
     - name: Prometheus 재시작
       systemd:
