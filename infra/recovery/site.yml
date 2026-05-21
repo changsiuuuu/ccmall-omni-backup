@@ -228,24 +228,24 @@
             user1@{{ web_host }} \
             "sudo sed -i 's/^DB_HOST=.*/DB_HOST=10.0.2.40/' /etc/ccmall/ccmall.env && sudo systemctl restart ccmall && sudo systemctl restart nginx"
 
-- name: mgmt Prometheus에 recovery target 등록
-  hosts: mgmt
-  become: true
-  tasks:
-    - name: ec2-db-2 scrape job 추가
-      blockinfile:
-        path: /etc/prometheus/prometheus.yml
-        marker: "# {mark} ANSIBLE MANAGED RECOVERY EC2-DB-2"
-        insertbefore: EOF
-        block: |
-          - job_name: 'ccmall-Recovery-ec2'
-            static_configs:
-              - targets: ['10.0.2.40:9100']
+# - name: mgmt Prometheus에 recovery target 등록
+#   hosts: mgmt
+#   become: true
+#   tasks:
+#     - name: ec2-db-2 scrape job 추가
+#       blockinfile:
+#         path: /etc/prometheus/prometheus.yml
+#         marker: "# {mark} ANSIBLE MANAGED RECOVERY EC2-DB-2"
+#         insertbefore: EOF
+#         block: |
+#           - job_name: 'ccmall-Recovery-ec2'
+#             static_configs:
+#               - targets: ['10.0.2.40:9100']
 
-    # - name: Prometheus 설정 검증
-    #   shell: promtool check config /etc/prometheus/prometheus.yml
+#     # - name: Prometheus 설정 검증
+#     #   shell: promtool check config /etc/prometheus/prometheus.yml
 
-    - name: Prometheus 재시작
-      systemd:
-        name: prometheus
-        state: restarted
+#     - name: Prometheus 재시작
+#       systemd:
+#         name: prometheus
+#         state: restarted
