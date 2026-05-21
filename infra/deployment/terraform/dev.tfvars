@@ -7,5 +7,5 @@ nat_instance_type = "t3.micro"
 web_instance_type = "t3.micro"
 rec_instance_type = "t3.micro"
 
-web_root_volume_size = 8
-rec_root_volume_size = 10
+web_root_volume_size = 30
+rec_root_volume_size = 30

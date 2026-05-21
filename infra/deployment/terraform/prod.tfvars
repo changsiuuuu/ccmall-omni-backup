@@ -8,5 +8,5 @@ nat_instance_type = "t3.small"
 web_instance_type = "t3.small"
 rec_instance_type = "t3.small"
 
-web_root_volume_size = 12
-rec_root_volume_size = 16
+web_root_volume_size = 30
+rec_root_volume_size = 30
